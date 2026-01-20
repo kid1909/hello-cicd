@@ -1,26 +1,18 @@
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+def test_predict_returns_probabilities():
+    with TestClient(app) as client:
+        payload = {"features": [5.1, 3.5, 1.4, 0.2]}
+        r = client.post("/predict", json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "class_id" in data
+        assert "probabilities" in data
+        assert len(data["probabilities"]) == 3
+        assert abs(sum(data["probabilities"]) - 1.0) < 1e-6
 
-def test_health_ok():
-    r = client.get("/health")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
-
-def test_add_returns_sum():
-    r = client.get("/add?a=2&b=3")
-    assert r.status_code == 200
-    assert r.json() == {"result": 5}
-
-def test_item_valid_id_returns_item():
-    r = client.get("/items/10")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["item_id"] == 10
-    assert data["name"] == "Item-10"
-
-def test_item_invalid_id_returns_400():
-    r = client.get("/items/-1")
-    assert r.status_code == 400
-    assert r.json()["detail"] == "item_id must be > 0"
+def test_predict_rejects_wrong_length():
+    with TestClient(app) as client:
+        r = client.post("/predict", json={"features": [1, 2, 3]})
+        assert r.status_code == 400
